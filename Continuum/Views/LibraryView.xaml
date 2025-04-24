@@ -4,6 +4,7 @@
              xmlns:viewModels="clr-namespace:Continuum.ViewModels"
              xmlns:models="clr-namespace:Continuum.Models"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2024/maui/toolkit"
+             xmlns:behaviors="clr-namespace:Continuum.Behaviors"
              x:Class="Continuum.Views.LibraryView"
              x:Name="LibraryViewPage"
              Title="My Library"><!-- No resources needed anymore since we're using a direct approach -->
@@ -181,8 +182,8 @@
                                             SelectedItem="{Binding Shelf, Mode=TwoWay}"
                                             SelectedIndexChanged="OnShelfPickerSelectedIndexChanged"
                                             VerticalOptions="Center"
-                                            HorizontalOptions="Start"
-                                            WidthRequest="100"
+                                            HorizontalOptions="FillAndExpand"
+                                            MinimumWidthRequest="100"
                                             Margin="5,0,0,0"/>
                                 </Grid>
                             </Border>
@@ -226,7 +227,6 @@
                                     <Grid ColumnDefinitions="Auto,*">
                                         <Image Grid.Column="0" Source="headset_icon.png" HeightRequest="15" WidthRequest="15" VerticalOptions="Center" IsVisible="{Binding IsAudiobook}" />                                        <!-- Simple Shelf Dropdown -->
                                         <Picker Grid.Column="1"
-                                                Title="None"
                                                 ItemsSource="{Binding Source={x:Reference LibraryViewPage}, Path=BindingContext.AvailableShelves}"
                                                 SelectedItem="{Binding Shelf, Mode=TwoWay}"
                                                 SelectedIndexChanged="OnShelfPickerSelectedIndexChanged"

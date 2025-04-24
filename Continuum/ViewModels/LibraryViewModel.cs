@@ -60,14 +60,16 @@ namespace Continuum.ViewModels
             
             LoadBooksAsync();
         }
-        
+
         private async Task LoadBooksAsync()
         {
             IsLoading = true;
             
             try
             {
+                // Ensure we're getting the latest book data with shelf assignments
                 _allBooks = await GetBooksFromStorageAsync();
+                
                 ApplyFilters();
                 LoadShelves();
             }
@@ -95,7 +97,7 @@ namespace Continuum.ViewModels
             
             // Create a list of shelves to add (instead of modifying during iteration)
             var shelvesToAdd = bookShelves
-                .Where(shelf => !shelfCollection.Shelves.Contains(shelf))
+                .Where(shelf => shelf != "None" && !shelfCollection.Shelves.Contains(shelf))
                 .ToList();
                 
             // Add missing shelves all at once
@@ -120,7 +122,7 @@ namespace Continuum.ViewModels
             // to avoid blocking the UI thread
             _ = LoadShelvesAsync().ConfigureAwait(false);
         }
-        
+
         public async Task<List<Book>> GetBooksFromStorageAsync()
         {
             var books = new List<Book>();
@@ -149,6 +151,9 @@ namespace Continuum.ViewModels
                     // Load metadata for this book
                     var metadata = await BookMetadata.LoadAsync(file.FullName);
                     
+                    // Ensure we're setting the shelf value correctly from metadata
+                    string shelfValue = !string.IsNullOrEmpty(metadata.Shelf) ? metadata.Shelf : "None";
+                    
                     books.Add(new Book
                     {
                         Title = fileName,
@@ -158,8 +163,8 @@ namespace Continuum.ViewModels
                         FileSize = file.Length,
                         IsAudiobook = Book.IsAudiobookExtension(file.Extension),
                         DateAdded = file.CreationTime,
-                        // Apply shelf from metadata if available
-                        Shelf = metadata.Shelf
+                        // Apply shelf from metadata if available with fallback to "None"
+                        Shelf = shelfValue
                     });
                 }
             }
@@ -171,7 +176,7 @@ namespace Continuum.ViewModels
             return books;
         }
 
-[RelayCommand]
+        [RelayCommand]
         public async Task AddBookFileAsync()
         {
             try
@@ -266,7 +271,7 @@ namespace Continuum.ViewModels
         
         private void ApplyFilters()
         {
-            var filteredBooks = _allBooks;
+            var filteredBooks = new List<Book>(_allBooks);
 
             // Apply shelf filter from navigation
             if (!string.IsNullOrEmpty(ShelfName) && ShelfName != "All Books")
@@ -284,7 +289,9 @@ namespace Continuum.ViewModels
             if (ShowOnlyAudiobooks)
             {
                 filteredBooks = filteredBooks.Where(b => b.IsAudiobook).ToList();
-            }            // Apply search filter
+            }
+            
+            // Apply search filter
             if (!string.IsNullOrEmpty(SearchText))
             {
                 string search = SearchText.ToLower();
@@ -294,13 +301,16 @@ namespace Continuum.ViewModels
                     .ToList();
             }
             
-            // Use dispatcher to defer UI updates until after current UI operation completes
-            // This prevents collection modification during measure/arrange
-            Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+            if (filteredBooks.Count != Books.Count && filteredBooks.Any(b => !Books.Contains(b)))
             {
-                // Replace the collection instead of modifying it in-place
-                Books = new ObservableCollection<Book>(filteredBooks);
-            });
+                // Use dispatcher to defer UI updates until after current UI operation completes
+                // This prevents collection modification during measure/arrange
+                Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                {
+                    // Replace the collection instead of modifying it in-place
+                    Books = new ObservableCollection<Book>(filteredBooks);
+                });
+            }            
         }
         
         [RelayCommand]
@@ -322,52 +332,17 @@ namespace Continuum.ViewModels
         {
             await LoadBooksAsync();
         }
-        
+
         [RelayCommand]
-        public async Task UpdateBookShelfAsync(object[] parameters)
-        {
-            if (parameters == null || parameters.Length != 2)
-                return;
-                
-            if (parameters[0] is Book book && parameters[1] is string newShelf)
-            {
-                // Update the book's shelf
-                book.Shelf = newShelf == "None" ? null : newShelf;
-                
-                // Find the corresponding book in _allBooks and update it
-                var bookInAllBooks = _allBooks.FirstOrDefault(b => b.FilePath == book.FilePath);
-                if (bookInAllBooks != null)
-                {
-                    bookInAllBooks.Shelf = book.Shelf;
-                }
-                
-                // Save the shelf to book metadata file
-                var metadata = await BookMetadata.LoadAsync(book.FilePath);
-                metadata.Shelf = book.Shelf;
-                await BookMetadata.SaveAsync(book.FilePath, metadata);
-                
-                // If we're filtering by shelf, we may need to update the UI
-                if (SelectedShelfFilter != "All Books" || !string.IsNullOrEmpty(ShelfName))
-                {
-                    ApplyFilters();
-                }
-                
-                // Update available shelves
-                LoadShelves();
-            }
-        }
-        
-        [RelayCommand]
-        public async void UpdateBookShelfSimple(Book book)
+        public async Task UpdateBookShelfSimple(Book book)
         {
             if (book == null)
                 return;
                 
             // Get the current shelf from the book
             string newShelf = book.Shelf ?? "None";
-            
-            // Update the book's shelf
-            book.Shelf = newShelf == "None" ? null : newShelf;
+              // Update the book's shelf (use empty string instead of null to avoid null reference issues)
+            book.Shelf = newShelf;
             
             // Find the corresponding book in _allBooks and update it
             var bookInAllBooks = _allBooks.FirstOrDefault(b => b.FilePath == book.FilePath);
@@ -381,14 +356,16 @@ namespace Continuum.ViewModels
             metadata.Shelf = book.Shelf;
             await BookMetadata.SaveAsync(book.FilePath, metadata);
             
-            // If we're filtering by shelf, we may need to update the UI
+            // Only apply filters if necessary and we're on a filtered view
             if (SelectedShelfFilter != "All Books" || !string.IsNullOrEmpty(ShelfName))
             {
                 ApplyFilters();
             }
-            
-            // Update available shelves
-            LoadShelves();
+        }
+
+        public string GetShelf(Book book)
+        {
+            return _books.FirstOrDefault(b => b.FilePath == book.FilePath)?.Shelf ?? "None";
         }
     }
 }

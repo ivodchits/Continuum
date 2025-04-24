@@ -4,11 +4,10 @@
              xmlns:vm="clr-namespace:Continuum.ViewModels"
              xmlns:models="clr-namespace:Continuum.Models"
              x:Class="Continuum.Views.ShelvesView"
-             Title="Shelves">
-
-    <ContentPage.BindingContext>
-        <vm:LibraryViewModel/>
-    </ContentPage.BindingContext>
+             Title="Shelves">    <!-- BindingContext is now set in code-behind to properly inject dependencies -->
+    <!-- <ContentPage.BindingContext>
+        <vm:ShelvesViewModel/>
+    </ContentPage.BindingContext> -->
 
     <VerticalStackLayout Padding="20" Spacing="10">
 
@@ -20,14 +19,25 @@
 
         <Label Text="Existing Shelves" FontSize="Medium" FontAttributes="Bold"/>
         <CollectionView ItemsSource="{Binding Shelves}">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
+            <CollectionView.ItemTemplate>                <DataTemplate>
                     <Frame Padding="10" Margin="0,5" CornerRadius="5" BorderColor="LightGray">
-                         <Frame.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShelvesViewModel}}, Path=GoToShelfCommand}"
-                                                  CommandParameter="{Binding .}"/>
-                        </Frame.GestureRecognizers>
-                        <Label Text="{Binding .}" FontSize="Body"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{Binding .}" FontSize="Body" VerticalOptions="Center">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShelvesViewModel}}, Path=GoToShelfCommand}"
+                                                        CommandParameter="{Binding .}"/>
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Button Grid.Column="1" Text="Delete" 
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShelvesViewModel}}, Path=RemoveShelfCommand}"
+                                    CommandParameter="{Binding .}"
+                                    BackgroundColor="Red"
+                                    TextColor="White"
+                                    CornerRadius="5"
+                                    Padding="8,0"
+                                    HeightRequest="30"
+                                    FontSize="12"/>
+                        </Grid>
                     </Frame>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

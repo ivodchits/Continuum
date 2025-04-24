@@ -8,7 +8,7 @@ namespace Continuum.Models
         public required string Title { get; set; }
         public required string Author { get; set; }
         public string? CoverImage { get; set; }
-        public string? Shelf { get; set; } = "None"; // Default shelf
+        public string Shelf { get; set; } = "None"; // Default shelf
         public bool IsAudiobook { get; set; } = false;
         public required string FilePath { get; set; } // Path to the book file
         public required string FileExtension { get; set; } // File extension
