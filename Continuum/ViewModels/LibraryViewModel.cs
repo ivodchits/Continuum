@@ -83,10 +83,9 @@ namespace Continuum.ViewModels
                 IsLoading = false;
             }
         }
-        
-        private async Task LoadShelvesAsync()
+          private async Task LoadShelvesAsync()
         {
-            var shelfCollection = await ShelfCollection.LoadAsync();
+            var appData = await AppData.LoadAsync();
             
             // Get any shelves from books that aren't in our stored collection
             var bookShelves = _allBooks
@@ -97,22 +96,25 @@ namespace Continuum.ViewModels
             
             // Create a list of shelves to add (instead of modifying during iteration)
             var shelvesToAdd = bookShelves
-                .Where(shelf => shelf != "None" && !shelfCollection.Shelves.Contains(shelf))
+                .Where(shelf => shelf != "None" && !appData.Shelves.Contains(shelf))
                 .ToList();
                 
             // Add missing shelves all at once
             if (shelvesToAdd.Count > 0)
             {
-                shelfCollection.Shelves.AddRange(shelvesToAdd);
-                await shelfCollection.SaveAsync();
+                appData.Shelves.AddRange(shelvesToAdd);
+                await appData.SaveAsync();
             }
             
             // Sort the shelves alphabetically (create a new list instead of modifying)
-            var shelves = shelfCollection.Shelves.OrderBy(s => s).ToList();
+            var shelves = appData.Shelves.OrderBy(s => s).ToList();
             
             // Insert None option at the beginning for shelf selection
             shelves.Insert(0, "None");
             AvailableShelves = shelves;
+            
+            // Apply the saved view preference
+            IsGridView = appData.IsGridView;
         }
          
          // Fire-and-forget wrapper that doesn't block
@@ -366,6 +368,27 @@ namespace Continuum.ViewModels
         public string GetShelf(Book book)
         {
             return _books.FirstOrDefault(b => b.FilePath == book.FilePath)?.Shelf ?? "None";
+        }
+        
+        // Update to save the view preference when it changes
+        partial void OnIsGridViewChanged(bool value)
+        {
+            // Save the view preference
+            SaveViewPreferenceAsync(value).ConfigureAwait(false);
+        }
+        
+        private async Task SaveViewPreferenceAsync(bool isGridView)
+        {
+            try
+            {
+                var appData = await AppData.LoadAsync();
+                appData.IsGridView = isGridView;
+                await appData.SaveAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving view preference: {ex.Message}");
+            }
         }
     }
 }

@@ -38,12 +38,11 @@ namespace Continuum.ViewModels
             // Load shelves after initialization
             _ = LoadShelvesAsync();
         }
-        
-        private async Task LoadShelvesAsync()
+          private async Task LoadShelvesAsync()
         {
-            // Load shelves from the shelf collection file
-            var shelfCollection = await ShelfCollection.LoadAsync();
-            Shelves = new ObservableCollection<string>(shelfCollection.Shelves.OrderBy(s => s));
+            // Load shelves from the app data file
+            var appData = await AppData.LoadAsync();
+            Shelves = new ObservableCollection<string>(appData.Shelves.OrderBy(s => s));
         }
         
         private async Task AddShelfAsync()
@@ -56,11 +55,10 @@ namespace Continuum.ViewModels
                 {
                     // Add to UI collection
                     Shelves.Add(trimmedName);
-                    
-                    // Persist to storage
-                    var shelfCollection = await ShelfCollection.LoadAsync();
-                    shelfCollection.AddShelf(trimmedName);
-                    await shelfCollection.SaveAsync();
+                      // Persist to storage
+                    var appData = await AppData.LoadAsync();
+                    appData.AddShelf(trimmedName);
+                    await appData.SaveAsync();
                     
                     // Clear input field
                     NewShelfName = string.Empty;
@@ -75,11 +73,10 @@ namespace Continuum.ViewModels
             
             // Remove from UI collection
             Shelves.Remove(shelfName);
-            
-            // Persist to storage
-            var shelfCollection = await ShelfCollection.LoadAsync();
-            shelfCollection.RemoveShelf(shelfName);
-            await shelfCollection.SaveAsync();
+              // Persist to storage
+            var appData = await AppData.LoadAsync();
+            appData.RemoveShelf(shelfName);
+            await appData.SaveAsync();
             
             // Update books with this shelf to have "None" shelf
             await UpdateBooksOnDeletedShelfAsync(shelfName);
