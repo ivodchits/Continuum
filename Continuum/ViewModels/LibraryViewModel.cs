@@ -41,9 +41,17 @@ namespace Continuum.ViewModels
         
         [ObservableProperty]
         private string _selectedShelfFilter = "All Books";
-
+        
         [ObservableProperty]
         private bool _isLoading = false;
+          [ObservableProperty]
+        private Book? _selectedBook;
+        
+        [ObservableProperty]
+        private bool _isContextMenuVisible = false;
+        
+        [ObservableProperty]
+        private Thickness _contextMenuPosition = new Thickness(0);
 
         public bool IsListView => !IsGridView;
 
@@ -306,12 +314,14 @@ namespace Continuum.ViewModels
             if (filteredBooks.Count != Books.Count && filteredBooks.Any(b => !Books.Contains(b)))
             {
                 // Use dispatcher to defer UI updates until after current UI operation completes
-                // This prevents collection modification during measure/arrange
-                Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                // This prevents collection modification during measure/arrange                if (Microsoft.Maui.Controls.Application.Current != null)
                 {
-                    // Replace the collection instead of modifying it in-place
-                    Books = new ObservableCollection<Book>(filteredBooks);
-                });
+                    Microsoft.Maui.Controls.Application.Current.Dispatcher.Dispatch(() =>
+                    {
+                        // Replace the collection instead of modifying it in-place
+                        Books = new ObservableCollection<Book>(filteredBooks);
+                    });
+                }
             }            
         }
         
@@ -367,7 +377,7 @@ namespace Continuum.ViewModels
 
         public string GetShelf(Book book)
         {
-            return _books.FirstOrDefault(b => b.FilePath == book.FilePath)?.Shelf ?? "None";
+            return Books.FirstOrDefault(b => b.FilePath == book.FilePath)?.Shelf ?? "None";
         }
         
         // Update to save the view preference when it changes
@@ -388,6 +398,61 @@ namespace Continuum.ViewModels
             catch (Exception ex)
             {
                 Console.WriteLine($"Error saving view preference: {ex.Message}");
+            }
+        }
+
+        [RelayCommand]
+        public async Task DeleteBookAsync(Book book)
+        {
+            if (book == null)
+                return;
+                
+            try
+            {
+                // Remove the book from the collections
+                _allBooks.Remove(book);
+                Books.Remove(book);
+                
+                // Delete the file from storage
+                if (File.Exists(book.FilePath))
+                {
+                    File.Delete(book.FilePath);
+                    
+                    // Also delete the metadata file if it exists
+                    string metadataPath = BookMetadata.GetMetadataFilePath(book.FilePath);
+                    if (File.Exists(metadataPath))
+                    {
+                        File.Delete(metadataPath);
+                    }
+                }
+                
+                // Hide the context menu
+                IsContextMenuVisible = false;
+                
+                // Refresh the UI
+                await LoadBooksAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting book: {ex.Message}");
+                // In a real app, you would want to display an error message to the user
+            }
+        }
+        
+        [RelayCommand]
+        public async void ShowContextMenu(Book book)
+        {
+            SelectedBook = book;
+            await Task.Delay(100); // Delay to ensure the book is set before showing the menu
+            IsContextMenuVisible = true;
+        }
+        
+        [RelayCommand]
+        public void HideContextMenu()
+        {
+            if (IsContextMenuVisible)
+            {
+                IsContextMenuVisible = false;
             }
         }
     }

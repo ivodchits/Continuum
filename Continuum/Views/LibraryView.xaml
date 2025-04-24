@@ -13,10 +13,50 @@
             <!-- Resources can be added here if needed in the future -->
         </ResourceDictionary>
     </ContentPage.Resources>
-    
-    <ContentPage.BindingContext>
+      <ContentPage.BindingContext>
         <viewModels:LibraryViewModel />
-    </ContentPage.BindingContext><Grid RowDefinitions="Auto,Auto,*" BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">
+    </ContentPage.BindingContext>
+    
+    <Grid RowDefinitions="Auto,Auto,*" BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}"
+          x:Name="MainGrid">
+
+        <!-- Context Menu Overlay - background layer that captures clicks outside the menu -->
+        <Grid Grid.RowSpan="3" 
+              InputTransparent="False"
+              IsVisible="{Binding IsContextMenuVisible}"
+              BackgroundColor="Transparent"
+              ZIndex="1000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding HideContextMenuCommand}" />
+            </Grid.GestureRecognizers>
+            
+            <!-- Context Menu - appears above the overlay -->
+            <Border 
+                   IsVisible="{Binding IsContextMenuVisible}"
+                   Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                   StrokeThickness="1"
+                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray800}}"
+                   WidthRequest="150"
+                   HeightRequest="50"
+                   HorizontalOptions="Start"
+                   VerticalOptions="Start"
+                   Padding="0"
+                   Margin="{Binding ContextMenuPosition}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="5" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="0">
+                    <Button Text="Delete"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource White}}"
+                            Command="{Binding DeleteBookCommand}"
+                            CommandParameter="{Binding SelectedBook}"
+                            Padding="15,10"
+                            HorizontalOptions="Fill"
+                            VerticalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
 
         <!-- Top Panel: Add Book Button, Search Bar and View Switcher -->
         <Grid Grid.Row="0" ColumnDefinitions="*, Auto, Auto">
