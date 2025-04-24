@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Continuum.ViewModels"
+             xmlns:models="clr-namespace:Continuum.Models"
+             x:Class="Continuum.Views.ShelvesView"
+             Title="Shelves">
+
+    <ContentPage.BindingContext>
+        <vm:LibraryViewModel/>
+    </ContentPage.BindingContext>
+
+    <VerticalStackLayout Padding="20" Spacing="10">
+
+        <Label Text="Create New Shelf" FontSize="Medium" FontAttributes="Bold"/>
+        <Entry Placeholder="Enter shelf name" Text="{Binding NewShelfName}"/>
+        <Button Text="Add Shelf" Command="{Binding AddShelfCommand}"/>
+
+        <Line Stroke="LightGray" StrokeThickness="1" Margin="0,10,0,10"/>
+
+        <Label Text="Existing Shelves" FontSize="Medium" FontAttributes="Bold"/>
+        <CollectionView ItemsSource="{Binding Shelves}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="10" Margin="0,5" CornerRadius="5" BorderColor="LightGray">
+                         <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShelvesViewModel}}, Path=GoToShelfCommand}"
+                                                  CommandParameter="{Binding .}"/>
+                        </Frame.GestureRecognizers>
+                        <Label Text="{Binding .}" FontSize="Body"/>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </VerticalStackLayout>
+</ContentPage>

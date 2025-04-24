@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="Continuum.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Continuum"
+    xmlns:views="clr-namespace:Continuum.Views"
+    x:Name="AppShellInstance">
+
+    <Shell.FlyoutHeaderTemplate>
+        <DataTemplate>
+            <Grid BackgroundColor="#f1f1f1" HeightRequest="60">
+                <Button
+                    x:Name="MenuToggleButton"
+                    Clicked="OnToggleMenuClicked"
+                    Text="☰"
+                    FontSize="20"
+                    HorizontalOptions="Start"
+                    VerticalOptions="Center"
+                    Margin="10,0,0,0"
+                    BackgroundColor="Transparent"
+                    BorderColor="Transparent" />
+            </Grid>
+        </DataTemplate>
+    </Shell.FlyoutHeaderTemplate>
+    <FlyoutItem Title="Library"
+                Icon="library.png">
+        <ShellContent
+            Title="Library"
+            ContentTemplate="{DataTemplate views:LibraryView}"
+            Route="LibraryView" />
+    </FlyoutItem>    
+
+    <FlyoutItem Title="Shelves"
+                Icon="shelves.png">
+        <ShellContent
+            Title="Shelves"
+            ContentTemplate="{DataTemplate views:ShelvesView}"
+            Route="ShelvesView" />
+    </FlyoutItem>
+
+    <!-- You can add more FlyoutItems or Tabs here -->
+
+</Shell>
