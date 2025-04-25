@@ -1,27 +1,25 @@
 using Continuum.ViewModels;
-using Microsoft.Maui.Controls;
 
-namespace Continuum.Views
+namespace Continuum.Views;
+
+public partial class BookDetailView : ContentPage
 {
-    public partial class BookDetailView : ContentPage
+    // Using the null-forgiving operator since we know it will be set in the constructor
+    private BookDetailViewModel? _viewModel;
+    
+    public BookDetailView(BookDetailViewModel bookDetailViewModel)
     {
-        private readonly BookDetailViewModel _viewModel;
+        InitializeComponent();
+        _viewModel = bookDetailViewModel;
+        BindingContext = bookDetailViewModel;
+    }
 
-        public BookDetailView()
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is BookDetailViewModel viewModel && viewModel.Book != null)
         {
-            InitializeComponent();
-            _viewModel = BindingContext as BookDetailViewModel;
-        }
-
-        protected override async void OnAppearing()
-        {
-            base.OnAppearing();
-            
-            // Load content based on the book type
-            if (_viewModel?.Book != null)
-            {
-                await _viewModel.LoadContentBasedOnFileTypeAsync();
-            }
+            await viewModel.LoadContentBasedOnFileTypeAsync();
         }
     }
 }

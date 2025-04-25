@@ -3,17 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:Continuum.ViewModels"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
-             xmlns:epub="clr-namespace:VersOne.Epub;assembly=VersOne.Epub"
              x:Class="Continuum.Views.BookDetailView"
-             Title="Book Details">    <ContentPage.Resources>        <ResourceDictionary>
+             Title="Book Details">
+             
+    <ContentPage.Resources>
+        <ResourceDictionary>
             <toolkit:ByteArrayToImageSourceConverter x:Key="ByteArrayToImageSourceConverter" />
             <toolkit:InvertedBoolConverter x:Key="BoolConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
-
-    <ContentPage.BindingContext>
-        <viewModels:BookDetailViewModel />
-    </ContentPage.BindingContext>
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header with back button and book title -->
@@ -42,8 +40,11 @@
                    VerticalOptions="Center"
                    Margin="10,0,0,0"/>
         </Grid>
-          <!-- Content area - will be filled based on book type -->
-        <Grid Grid.Row="1" x:Name="ContentContainer" BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">            <!-- Default view with book info -->
+          
+        <!-- Content area - will be filled based on book type -->
+        <Grid Grid.Row="1" x:Name="ContentContainer" BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">
+            
+            <!-- Default view with book info -->
             <VerticalStackLayout VerticalOptions="Start" HorizontalOptions="Center" Padding="20" Spacing="20"
                                 IsVisible="{Binding IsChapterLoaded, Converter={StaticResource BoolConverter}, ConverterParameter='false'}">
                 <Image Source="{Binding Book.CoverImage, Converter={StaticResource ByteArrayToImageSourceConverter}}"
@@ -72,7 +73,8 @@
                        HorizontalTextAlignment="Center"
                        TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"/>
             </VerticalStackLayout>
-              <!-- EPUB Reader View -->
+              
+            <!-- Book Reader View -->
             <Grid IsVisible="{Binding IsChapterLoaded}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -99,9 +101,9 @@
                                    ItemsSource="{Binding TableOfContents}"
                                    SelectionMode="Single">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="epub:EpubNavigationItem">
+                            <DataTemplate>
                                 <Grid Padding="10,5">
-                                    <Label Text="{Binding Title}" 
+                                    <Label Text="{Binding .}" 
                                            FontSize="14"
                                            LineBreakMode="TailTruncation">
                                         <Label.GestureRecognizers>
@@ -121,10 +123,12 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                      <!-- WebView to display HTML content -->
+                      
+                    <!-- WebView to display HTML content -->
                     <WebView Grid.Row="0"
                              VerticalOptions="Fill"
-                             HorizontalOptions="Fill">                        <WebView.Source>
+                             HorizontalOptions="Fill">
+                        <WebView.Source>
                             <HtmlWebViewSource Html="{Binding CurrentChapterHtml}" />
                         </WebView.Source>
                     </WebView>
