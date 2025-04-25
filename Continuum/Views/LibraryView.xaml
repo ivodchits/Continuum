@@ -3,20 +3,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:Continuum.ViewModels"
              xmlns:models="clr-namespace:Continuum.Models"
-             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2024/maui/toolkit"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:behaviors="clr-namespace:Continuum.Behaviors"
              x:Class="Continuum.Views.LibraryView"
              x:Name="LibraryViewPage"
              Title="My Library"><!-- No resources needed anymore since we're using a direct approach -->
     <ContentPage.Resources>
         <ResourceDictionary>
-            <!-- Resources can be added here if needed in the future -->
+            <toolkit:ByteArrayToImageSourceConverter x:Key="ByteArrayToImageSourceConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
-      <ContentPage.BindingContext>
+
+    <ContentPage.BindingContext>
         <viewModels:LibraryViewModel />
     </ContentPage.BindingContext>
-    
+   
     <Grid RowDefinitions="Auto,Auto,*" BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}"
           x:Name="MainGrid">
 
@@ -198,7 +199,7 @@
                                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="7">
                                     <Image Grid.RowSpan="2"
                                            Grid.Column="0"
-                                           Source="{Binding CoverImage}"
+                                           Source="{Binding CoverImage, Mode=OneWay, Converter={StaticResource ByteArrayToImageSourceConverter}}"
                                            Aspect="AspectFit"
                                            HeightRequest="60"
                                            WidthRequest="40" />
@@ -247,7 +248,7 @@
                                 </Border.StrokeShape>
 
                                 <VerticalStackLayout Spacing="5" Padding="5">
-                                    <Image Source="{Binding CoverImage}"
+                                    <Image Source="{Binding CoverImage, Mode=OneWay, Converter={StaticResource ByteArrayToImageSourceConverter}}"
                                            Aspect="AspectFill"
                                            HeightRequest="100"
                                            WidthRequest="100"

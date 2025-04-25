@@ -164,18 +164,7 @@ namespace Continuum.ViewModels
                     // Ensure we're setting the shelf value correctly from metadata
                     string shelfValue = !string.IsNullOrEmpty(metadata.Shelf) ? metadata.Shelf : "None";
                     
-                    books.Add(new Book
-                    {
-                        Title = fileName,
-                        Author = "Unknown", // In a real app, you would extract this from metadata
-                        FilePath = file.FullName,
-                        FileExtension = file.Extension,
-                        FileSize = file.Length,
-                        IsAudiobook = Book.IsAudiobookExtension(file.Extension),
-                        DateAdded = file.CreationTime,
-                        // Apply shelf from metadata if available with fallback to "None"
-                        Shelf = shelfValue
-                    });
+                    books.Add(BookFactory.CreateBook(file));
                 }
             }
             catch (Exception ex)
@@ -237,7 +226,7 @@ namespace Continuum.ViewModels
                 }
                 
                 // Create a unique filename to avoid conflicts
-                var destinationFileName = $"{Guid.NewGuid()}{extension}";
+                var destinationFileName = file.FileName;
                 var destinationPath = Path.Combine(_localStoragePath, destinationFileName);
                 
                 // Copy the file to our app's storage

@@ -38,7 +38,8 @@ namespace Continuum.ViewModels
             // Load shelves after initialization
             _ = LoadShelvesAsync();
         }
-          private async Task LoadShelvesAsync()
+        
+        private async Task LoadShelvesAsync()
         {
             // Load shelves from the app data file
             var appData = await AppData.LoadAsync();
@@ -97,7 +98,7 @@ namespace Continuum.ViewModels
                 var metadata = await BookMetadata.LoadAsync(book.FilePath);
                 
                 // Set shelf to null/"None"
-                metadata.Shelf = string.Empty;
+                metadata.Shelf = "None";
                 
                 // Save updated metadata
                 await BookMetadata.SaveAsync(book.FilePath, metadata);
