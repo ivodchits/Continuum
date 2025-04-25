@@ -57,6 +57,22 @@ public partial class LibraryView : ContentPage
             });
         }
     }
+
+    // New method to handle book item tapped (left click)
+    private async void OnBookItemTapped(object sender, TappedEventArgs e)
+    {
+        if (e.Parameter is Book book)
+        {
+            // Create navigation parameters
+            var navigationParameter = new Dictionary<string, object>
+            {
+                { "Book", book }
+            };
+            
+            // Navigate to the book detail page with the selected book
+            await Shell.Current.GoToAsync(nameof(BookDetailView), navigationParameter);
+        }
+    }
     
     private void AttachRightClickHandlers()
     {

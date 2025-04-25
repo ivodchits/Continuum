@@ -9,11 +9,10 @@ public partial class AppShell : Shell
 
 	public AppShell()
 	{
-		InitializeComponent();
-
-        // Register routes for navigation
+		InitializeComponent();        // Register routes for navigation
         Routing.RegisterRoute(nameof(Views.LibraryView), typeof(Views.LibraryView));
         Routing.RegisterRoute(nameof(Views.ShelvesView), typeof(Views.ShelvesView));
+        Routing.RegisterRoute(nameof(Views.BookDetailView), typeof(Views.BookDetailView));
         // Register other views if needed
         
         // Set FlyoutBehavior based on platform

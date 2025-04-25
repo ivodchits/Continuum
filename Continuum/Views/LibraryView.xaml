@@ -187,12 +187,14 @@
                 <!-- List View -->
                 <CollectionView ItemsSource="{Binding Books}" IsVisible="{Binding IsListView}">
                     <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="models:Book">
-                            <Border Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                        <DataTemplate x:DataType="models:Book">                            <Border Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
                                     StrokeThickness="1"
                                     Padding="2"
                                     Margin="0,0,0,5"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray800}}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnBookItemTapped" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="5"/>
                                 </Border.StrokeShape>
@@ -238,11 +240,13 @@
                         <GridItemsLayout Orientation="Vertical" Span="3" VerticalItemSpacing="10" HorizontalItemSpacing="10"/>
                     </CollectionView.ItemsLayout>
                     <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="models:Book">
-                            <Border Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                        <DataTemplate x:DataType="models:Book">                            <Border Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
                                     StrokeThickness="1"
                                     Padding="5"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray800}}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnBookItemTapped" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="8"/>
                                 </Border.StrokeShape>
