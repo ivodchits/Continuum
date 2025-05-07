@@ -9,6 +9,12 @@ namespace Continuum.Services
     {
         private ObservableCollection<string> _chapters = new();
         private bool _isBookLoaded;
+        private readonly PagedContentService _pagedContentService;
+        
+        public PdfReaderService(PagedContentService pagedContentService)
+        {
+            _pagedContentService = pagedContentService ?? throw new System.ArgumentNullException(nameof(pagedContentService));
+        }
         
         public bool CanHandleBook(Book book)
         {
@@ -45,7 +51,10 @@ namespace Continuum.Services
         public async Task<string> LoadChapterByIndexAsync(int index)
         {
             // PDF content loading will be added in the future
-            return "<html><body><h1>PDF Reading</h1><p>PDF reading capabilities coming soon!</p></body></html>";
+            string basicHtml = "<html><body><h1>PDF Reading</h1><p>PDF reading capabilities coming soon!</p></body></html>";
+            
+            // Apply pagination to ensure consistent reading experience
+            return _pagedContentService.PreparePagedContent(basicHtml);
         }
         
         public async Task<string> NavigateToChapterAsync(string navigationItem)

@@ -25,6 +25,7 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 		// Register Services
+        builder.Services.AddSingleton<Services.PagedContentService>();
         builder.Services.AddSingleton<Services.EpubReaderService>();
         builder.Services.AddSingleton<Services.PdfReaderService>();
         builder.Services.AddSingleton<Services.BookReaderServiceFactory>(provider => 

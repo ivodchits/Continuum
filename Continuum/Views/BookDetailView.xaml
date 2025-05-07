@@ -123,11 +123,11 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                      
-                    <!-- WebView to display HTML content -->
+                        <!-- WebView to display HTML content -->
                     <WebView Grid.Row="0"
                              VerticalOptions="Fill"
-                             HorizontalOptions="Fill">
+                             HorizontalOptions="Fill"
+                             x:Name="BookContentWebView">
                         <WebView.Source>
                             <HtmlWebViewSource Html="{Binding CurrentChapterHtml}" />
                         </WebView.Source>

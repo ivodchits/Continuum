@@ -19,6 +19,12 @@ namespace Continuum.Services
         private Dictionary<string, string> _cssCache = new();
         private Dictionary<string, string> _imageCache = new();
         private bool _isBookLoaded;
+        private readonly PagedContentService _pagedContentService;
+        
+        public EpubReaderService(PagedContentService pagedContentService)
+        {
+            _pagedContentService = pagedContentService ?? throw new ArgumentNullException(nameof(pagedContentService));
+        }
         
         public bool CanHandleBook(Book book)
         {
@@ -96,9 +102,12 @@ namespace Continuum.Services
             {
                 // Get the chapter from reading order
                 var chapter = _epubBook.ReadingOrder[index];
-                  // Get the HTML content and process it
+                
+                // Get the HTML content and process it
                 string html = await Task.Run(() => ProcessChapterHtml(chapter.Content, chapter.FilePath));
-                return html;
+                
+                // Apply pagination to the processed HTML content
+                return _pagedContentService.PreparePagedContent(html);
             }
             catch (Exception ex)
             {
@@ -136,9 +145,12 @@ namespace Continuum.Services
                 {
                     return await LoadChapterByIndexAsync(index);
                 }
-                  // If not found in reading order, try to load directly
+                
+                // If not found in reading order, try to load directly
                 string html = await Task.Run(() => ProcessChapterHtml(navItem.HtmlContentFile.Content, navItem.HtmlContentFile.FilePath));
-                return html;
+                
+                // Apply pagination to the processed HTML content
+                return _pagedContentService.PreparePagedContent(html);
             }
             catch (Exception ex)
             {
@@ -172,7 +184,8 @@ namespace Continuum.Services
             
             // Cache CSS files
             try
-            {                foreach (var item in _epubBook.Content.Css.Local)
+            {
+                foreach (var item in _epubBook.Content.Css.Local)
                 {
                     _cssCache[item.FilePath] = item.Content;
                 }
