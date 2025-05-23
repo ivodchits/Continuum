@@ -305,42 +305,36 @@ namespace Continuum.Services
                         // Maximum content height per page (e.g., 95% of page height to be safe)
                         const maxPageHeight = container.clientHeight * 0.95;
                         let currentHeight = 0;
+                        let significantElementsOnCurrentPage = 0; // Counter for significant elements
+
+                        const MIN_SIGNIFICANT_ELEMENTS_PER_PAGE = 2;
+                        const OVERFLOW_TOLERANCE_FACTOR = 1.10; // 10% tolerance
 
                         // Helper function to get the rendered height of an element
                         function getElementRenderedHeight(element, parentWidthReference) {
                             if (!parentWidthReference || parentWidthReference.clientWidth === 0) {
-                                // Fallback if parentWidthReference isn't ready (e.g. first page, not yet in DOM / styled)
-                                // This is a rough estimate, ideally parentWidthReference is always valid.
-                                // Using a default width based on CSS min-page-width (300px) - padding (20px*2)
                                 console.warn("Parent width reference not available or zero, using default for measurement.");
-                                // Ensure currentPageDiv is used if available, otherwise a default.
                                 const effectiveParentWidth = parentWidthReference && parentWidthReference.clientWidth > 0 
                                     ? parentWidthReference.clientWidth 
                                     : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-page-width') || '300');
-                                
-                                // Account for page padding if using default width
                                 const widthForMeasurement = Math.max(50, effectiveParentWidth - (parentWidthReference === currentPageDiv ? 40 : 0) );
-
-
                                 parentWidthReference = { clientWidth: widthForMeasurement };
                             }
                             
-                            const clone = element.cloneNode(true); // Clone to avoid altering the original node if it's already in DOM elsewhere
+                            const clone = element.cloneNode(true);
                             clone.style.visibility = 'hidden';
-                            clone.style.position = 'absolute'; // Use absolute positioning
-                            clone.style.left = '-9999px'; // Move off-screen
-                            clone.style.top = '-9999px';  // Move off-screen
-                            clone.style.display = 'block'; // Ensure block display for measurement
+                            clone.style.position = 'absolute';
+                            clone.style.left = '-9999px';
+                            clone.style.top = '-9999px';
+                            clone.style.display = 'block';
                             
-                            // Set width for measurement. If parentWidthReference is currentPageDiv, account for its padding.
-                            // Otherwise, use its clientWidth directly (e.g. for tempSpan for text nodes)
                             let measureWidth = parentWidthReference.clientWidth;
-                            if (parentWidthReference === currentPageDiv) {
-                                measureWidth = Math.max(50, parentWidthReference.clientWidth - 40); // 20px padding L+R
+                            if (parentWidthReference === currentPageDiv) { // Check if it is the actual page div
+                                measureWidth = Math.max(50, parentWidthReference.clientWidth - 40); // Account for page padding
                             }
                             clone.style.width = measureWidth + 'px'; 
                             
-                            document.body.appendChild(clone); // Append to body for reliable computed styles
+                            document.body.appendChild(clone);
                             
                             let height = clone.offsetHeight;
                             const style = window.getComputedStyle(clone);
@@ -351,60 +345,210 @@ namespace Continuum.Services
                             return height;
                         }
 
-                        contentNodes.forEach(node => {
-                            const originalNodeClone = node.cloneNode(true); // This clone will be appended to the page
+                        function addElementToPage(pageDiv, elementClone, height) {
+                            pageDiv.appendChild(elementClone);
+                            currentHeight += height;
+                            // Increment significant elements counter if the node is an element or a non-empty text node
+                            if (elementClone.nodeType === 1 || (elementClone.nodeType === 3 && elementClone.textContent.trim() !== '')) {
+                                significantElementsOnCurrentPage++;
+                            }
+                        }
+
+                        function createNewPage() {
+                            const newPage = document.createElement('div');
+                            newPage.className = 'page';
+                            container.appendChild(newPage);
+                            pages.push(newPage);
+                            currentHeight = 0;
+                            significantElementsOnCurrentPage = 0;
+                            return newPage;
+                        }
+
+                        // Helper function for trying to split a paragraph
+                        function trySplitParagraph(paragraphNodeToSplit) {
+                            const originalText = paragraphNodeToSplit.textContent || '';
+                            const words = originalText.split(/\s+/).filter(word => word.length > 0);
+
+                            if (words.length === 0) return false; // Cannot process if no words
+
+                            let currentWordIndex = 0;
+                            let isFirstChunkOfParagraph = true; 
+                            // This flag tracks if we are placing the very first chunk of this original paragraph.
+                            // If so, it uses the current page. Subsequent chunks must start new pages.
+
+                            while (currentWordIndex < words.length) {
+                                let paragraphChunkShell = paragraphNodeToSplit.cloneNode(false); // Fresh P shell with original styles
+                                let textContentForThisChunk = "";
+                                let chunkCanBePlaced = true; // Assume it can be placed until proven otherwise
+
+                                if (!isFirstChunkOfParagraph) {
+                                    currentPageDiv = createNewPage(); // Subsequent chunks start on new pages
+                                }
+                                
+                                // Add shell to the page first to establish its context (margins etc.)
+                                currentPageDiv.appendChild(paragraphChunkShell);
+                                if(significantElementsOnCurrentPage === 0 && textContentForThisChunk === "") {
+                                     // If page is empty and we just added an empty shell, count it once.
+                                     // Or, if it's a new page, it's counted by createNewPage implicitly starting with 0, then this adds 1.
+                                     // This ensures the shell itself (which has margins) is considered.
+                                     // We only increment if the shell is truly the first thing *meaningfully* on this page.
+                                     // The addElementToPage in the main loop usually handles this.
+                                     // Let's refine: only increment sigEls when text is actually added.
+                                }
+
+
+                                let heightOfThisChunk = 0;
+                                // Temporarily remove bottom margin for iterative height checking of text, restore it later
+                                const originalBottomMargin = paragraphChunkShell.style.marginBottom;
+                                paragraphChunkShell.style.marginBottom = "0px";
+
+
+                                for (let i = currentWordIndex; i < words.length; i++) {
+                                    const word = words[i];
+                                    const prospectiveText = textContentForThisChunk + (textContentForThisChunk ? ' ' : '') + word;
+                                    paragraphChunkShell.textContent = prospectiveText;
+                                    
+                                    let heightOfChunkWithProspectiveText = getElementRenderedHeight(paragraphChunkShell, currentPageDiv);
+                                   
+                                    // If current page is empty, it must accept at least one word (unless word itself is too big for any page)
+                                    if (significantElementsOnCurrentPage === 0 && textContentForThisChunk === "") { // Page is empty, this is the first word for this page
+                                        // No break, add first word regardless of height (it will overflow if truly massive)
+                                    } else if (currentHeight + heightOfChunkWithProspectiveText > maxPageHeight) {
+                                        // Word does not fit. Revert to previous text for this chunk.
+                                        paragraphChunkShell.textContent = textContentForThisChunk;
+                                        chunkCanBePlaced = false; // Mark that this chunk is finalized due to overflow
+                                        break; 
+                                    }
+                                    textContentForThisChunk = prospectiveText; // Word fits, commit text
+                                    currentWordIndex = i + 1; 
+                                }
+                                
+                                paragraphChunkShell.style.marginBottom = originalBottomMargin; // Restore original bottom margin
+                                heightOfThisChunk = getElementRenderedHeight(paragraphChunkShell, currentPageDiv); // Final height of this chunk
+
+                                if (textContentForThisChunk.trim() === "") { // If chunk is empty after trying words
+                                    if (paragraphChunkShell.parentNode === currentPageDiv) {
+                                        currentPageDiv.removeChild(paragraphChunkShell); // Remove empty shell
+                                    }
+                                    // If all words were processed and the last chunk was empty, break.
+                                    if (currentWordIndex >= words.length) break; 
+                                    // If it was due to overflow and no text fit, it implies the next word was too big.
+                                    // It will be handled by the next iteration of the while loop on a new page.
+                                    if (!chunkCanBePlaced) {
+                                        isFirstChunkOfParagraph = false; // Ensure next attempt is on a new page
+                                        continue; // Outer while loop will make a new page
+                                    }
+                                } else {
+                                     // Chunk has content. Update page stats.
+                                    if(isFirstChunkOfParagraph || significantElementsOnCurrentPage === 0) {
+                                         significantElementsOnCurrentPage++; // Count this first chunk if page was empty or this is the first.
+                                    } else if (!currentPageDiv.contains(paragraphChunkShell)) {
+                                        // This case should not happen if logic is correct.
+                                        // It means a new page was made but shell not added.
+                                        currentPageDiv.appendChild(paragraphChunkShell);
+                                        significantElementsOnCurrentPage++;
+                                    } else {
+                                        // Shell already on page, and page wasn't empty. Increment if this is a *new* element on this page.
+                                        // This is tricky because the shell is added, then text filled.
+                                        // The `significantElementsOnCurrentPage` should be managed by `addElementToPage` or `createNewPage`.
+                                        // The splitter is for *one* original element. It makes *one or more* new elements.
+                                        // Each new element (part) should be counted once.
+                                        // `createNewPage` resets sigEls to 0. `addElementToPage` increments it.
+                                        // The first paragraphChunkShell is added to currentPageDiv. If currentPageDiv was empty, sigEls becomes 1.
+                                        // If currentPageDiv was not empty, it's just another element.
+                                        // Let's assume `addElementToPage` and `createNewPage` handle sigEls correctly.
+                                        // The issue is that we are manipulating `currentPageDiv` directly here.
+
+                                        // Revised: `significantElementsOnCurrentPage` is managed by the main loop's `addElementToPage`
+                                        // and `createNewPage`. The splitter just places content.
+                                        // The first chunk uses the existing `currentPageDiv`.
+                                        // Subsequent chunks use `createNewPage`, which correctly sets up sigEls for the new page.
+                                    }
+                                    currentHeight += heightOfThisChunk;
+                                }
+
+                                if (!chunkCanBePlaced) { 
+                                    isFirstChunkOfParagraph = false; 
+                                } else {
+                                    break; 
+                                }
+                            }
+                            return true; // Original paragraph was processed (split or fully placed)
+                        }
+
+
+                        contentNodes.forEach((node, index) => {
+                            const originalNodeClone = node.cloneNode(true); 
                             
-                            // Skip empty text nodes and comments
-                            if ((node.nodeType === 3 && node.textContent.trim() === '') || 
-                                node.nodeType === 8) {
-                                return;
+                            if ((node.nodeType === 3 && node.textContent.trim() === '') || node.nodeType === 8) {
+                                return; 
                             }
                             
                             let estimatedHeight = 0;
-                            if (node.nodeType === 1) { // Element node
-                                const tagName = node.tagName.toLowerCase();
-                                // Always start a new page for h1-h3 headings if the current page is not empty
-                                if (/^h[1-3]$/i.test(tagName) && currentPageDiv.innerHTML.trim() !== '') {
-                                    currentPageDiv = document.createElement('div');
-                                    currentPageDiv.className = 'page';
-                                    container.appendChild(currentPageDiv);
-                                    pages.push(currentPageDiv);
-                                    currentHeight = 0;
-                                }
-                                estimatedHeight = getElementRenderedHeight(originalNodeClone, currentPageDiv);
-                            } else if (node.nodeType === 3) { // Text node
-                                // For text nodes, wrap in a span for measurement.
+                            // For text nodes, wrap in a span for consistent height measurement as if it were an element.
+                            const nodeForMeasurement = node.nodeType === 1 ? originalNodeClone : (() => {
                                 const tempSpan = document.createElement('span');
-                                // Important: use originalNodeClone here, not node.
-                                // originalNodeClone is what will be appended to the page.
-                                tempSpan.appendChild(originalNodeClone.cloneNode(true)); 
-                                estimatedHeight = getElementRenderedHeight(tempSpan, currentPageDiv);
+                                tempSpan.appendChild(originalNodeClone.cloneNode(true));
+                                return tempSpan;
+                            })();
+                            estimatedHeight = getElementRenderedHeight(nodeForMeasurement, currentPageDiv);
+
+
+                            let forceNewPageForThisElement = false;
+                            if (node.nodeType === 1 && /^h[1-3]$/i.test(node.tagName) && significantElementsOnCurrentPage > 0) {
+                                forceNewPageForThisElement = true;
                             }
 
-                            // If the current page is empty and this single element is too tall, 
-                            // it will still be added (and will overflow, which is acceptable per instructions).
-                            // Otherwise, if it doesn't fit, create a new page.
-                            if (currentHeight + estimatedHeight > maxPageHeight && currentPageDiv.innerHTML.trim() !== '') {
-                                // Create a new page
-                                currentPageDiv = document.createElement('div');
-                                currentPageDiv.className = 'page';
-                                container.appendChild(currentPageDiv);
-                                pages.push(currentPageDiv);
-                                currentHeight = 0;
+                            if (forceNewPageForThisElement) {
+                                currentPageDiv = createNewPage();
+                                addElementToPage(currentPageDiv, originalNodeClone, estimatedHeight);
+                            } else {
+                                const isParagraph = node.nodeType === 1 && node.tagName.toLowerCase() === 'p';
+                                let paragraphWasSplitAndHandled = false;
+
+                                if (isParagraph && significantElementsOnCurrentPage > 0) {
+                                    const fullParagraphWouldOverflow = (currentHeight + estimatedHeight > maxPageHeight);
+                                    const isSparselyPopulated = significantElementsOnCurrentPage < MIN_SIGNIFICANT_ELEMENTS_PER_PAGE;
+                                    const canFitWithTolerance = (currentHeight + estimatedHeight <= maxPageHeight * OVERFLOW_TOLERANCE_FACTOR);
+
+                                    if (fullParagraphWouldOverflow && !(isSparselyPopulated && canFitWithTolerance)) {
+                                        // Condition where we definitely don't want to just add the full P and overflow heavily or onto a packed page.
+                                        // Try to split it.
+                                        if (trySplitParagraph(originalNodeClone)) {
+                                            paragraphWasSplitAndHandled = true; 
+                                        }
+                                    }
+                                }
+
+                                if (!paragraphWasSplitAndHandled) {
+                                    // Standard handling if not a paragraph, or if paragraph didn't need/couldn't be split,
+                                    // or if it's the first element on a page.
+                                    if (significantElementsOnCurrentPage === 0) { 
+                                        addElementToPage(currentPageDiv, originalNodeClone, estimatedHeight);
+                                    } else {
+                                        const potentialNextHeight = currentHeight + estimatedHeight;
+                                        const isPageSparselyPopulated = significantElementsOnCurrentPage < MIN_SIGNIFICANT_ELEMENTS_PER_PAGE;
+
+                                        if (potentialNextHeight > maxPageHeight) {
+                                            if (isPageSparselyPopulated && potentialNextHeight <= maxPageHeight * OVERFLOW_TOLERANCE_FACTOR) {
+                                                addElementToPage(currentPageDiv, originalNodeClone, estimatedHeight);
+                                            } else {
+                                                currentPageDiv = createNewPage();
+                                                addElementToPage(currentPageDiv, originalNodeClone, estimatedHeight);
+                                            }
+                                        } else {
+                                            addElementToPage(currentPageDiv, originalNodeClone, estimatedHeight);
+                                        }
+                                    }
+                                }
                             }
-                            
-                            // Add the original cloned node (not the one used for measurement if it was wrapped/modified)
-                            currentPageDiv.appendChild(originalNodeClone);
-                            currentHeight += estimatedHeight;
                         });
                         
-                        // Remove empty last page if one was created due to trailing newlines or small elements
-                        if (pages.length > 1 && pages[pages.length - 1].innerHTML.trim() === '') {
+                        if (pages.length > 0 && pages[pages.length - 1].innerHTML.trim() === '') {
                             container.removeChild(pages[pages.length - 1]);
                             pages.pop();
                         }
 
-                        // Update total pages
                         totalPages = pages.length;
                     }
                       function navigateToPrevPage() {
