@@ -282,28 +282,17 @@ namespace Continuum.Services
                     }
                     
                     function processContent() {
-                        // Clear any existing pages
-                        while (container.firstChild) {
-                            container.removeChild(container.firstChild);
-                        }
+                        // Get the initial child nodes directly from the container.
+                        // These are the nodes that were placed there by the C# code.
+                        const initialContentNodes = Array.from(container.childNodes);
                         
-                        // Get all content from the body
-                        const content = document.body.innerHTML;
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = content;
+                        // Clear the container. This is important because createPages will
+                        // append new '.page' divs into it. We've already captured
+                        // the original content that needs to be paginated.
+                        container.innerHTML = ''; 
                         
-                        // Remove the paged-content div and controls to avoid duplication
-                        const existingContainer = tempDiv.querySelector('.paged-content');
-                        if (existingContainer) tempDiv.removeChild(existingContainer);
-                        
-                        const existingControls = tempDiv.querySelector('.page-controls');
-                        if (existingControls) tempDiv.removeChild(existingControls);
-                        
-                        // Get all content nodes
-                        const contentNodes = Array.from(tempDiv.childNodes);
-                        
-                        // Create pages based on content
-                        createPages(contentNodes);
+                        // Create pages based on the extracted initial content
+                        createPages(initialContentNodes);
                     }
                     
                     function createPages(contentNodes) {
@@ -313,21 +302,57 @@ namespace Continuum.Services
                         container.appendChild(currentPageDiv);
                         pages.push(currentPageDiv);
                         
-                        // Maximum content height per page (80% of page height to be safe)
-                        const maxPageHeight = container.clientHeight * 0.8;
+                        // Maximum content height per page (e.g., 95% of page height to be safe)
+                        const maxPageHeight = container.clientHeight * 0.95;
                         let currentHeight = 0;
-                        
-                        // Helper function to estimate text height
-                        function estimateTextHeight(text, fontSize = 16) {
-                            // Approximate chars per line
-                            const charsPerLine = Math.floor(currentPageDiv.clientWidth / (fontSize * 0.5));
-                            const lines = Math.ceil(text.length / charsPerLine);
-                            return lines * (fontSize * 1.5); // 1.5 is a typical line height
+
+                        // Helper function to get the rendered height of an element
+                        function getElementRenderedHeight(element, parentWidthReference) {
+                            if (!parentWidthReference || parentWidthReference.clientWidth === 0) {
+                                // Fallback if parentWidthReference isn't ready (e.g. first page, not yet in DOM / styled)
+                                // This is a rough estimate, ideally parentWidthReference is always valid.
+                                // Using a default width based on CSS min-page-width (300px) - padding (20px*2)
+                                console.warn("Parent width reference not available or zero, using default for measurement.");
+                                // Ensure currentPageDiv is used if available, otherwise a default.
+                                const effectiveParentWidth = parentWidthReference && parentWidthReference.clientWidth > 0 
+                                    ? parentWidthReference.clientWidth 
+                                    : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--min-page-width') || '300');
+                                
+                                // Account for page padding if using default width
+                                const widthForMeasurement = Math.max(50, effectiveParentWidth - (parentWidthReference === currentPageDiv ? 40 : 0) );
+
+
+                                parentWidthReference = { clientWidth: widthForMeasurement };
+                            }
+                            
+                            const clone = element.cloneNode(true); // Clone to avoid altering the original node if it's already in DOM elsewhere
+                            clone.style.visibility = 'hidden';
+                            clone.style.position = 'absolute'; // Use absolute positioning
+                            clone.style.left = '-9999px'; // Move off-screen
+                            clone.style.top = '-9999px';  // Move off-screen
+                            clone.style.display = 'block'; // Ensure block display for measurement
+                            
+                            // Set width for measurement. If parentWidthReference is currentPageDiv, account for its padding.
+                            // Otherwise, use its clientWidth directly (e.g. for tempSpan for text nodes)
+                            let measureWidth = parentWidthReference.clientWidth;
+                            if (parentWidthReference === currentPageDiv) {
+                                measureWidth = Math.max(50, parentWidthReference.clientWidth - 40); // 20px padding L+R
+                            }
+                            clone.style.width = measureWidth + 'px'; 
+                            
+                            document.body.appendChild(clone); // Append to body for reliable computed styles
+                            
+                            let height = clone.offsetHeight;
+                            const style = window.getComputedStyle(clone);
+                            height += parseInt(style.marginTop) || 0;
+                            height += parseInt(style.marginBottom) || 0;
+                            
+                            document.body.removeChild(clone);
+                            return height;
                         }
-                          // Process each node
+
                         contentNodes.forEach(node => {
-                            // Clone the node
-                            const clone = node.cloneNode(true);
+                            const originalNodeClone = node.cloneNode(true); // This clone will be appended to the page
                             
                             // Skip empty text nodes and comments
                             if ((node.nodeType === 3 && node.textContent.trim() === '') || 
@@ -335,83 +360,31 @@ namespace Continuum.Services
                                 return;
                             }
                             
-                            // Special handling for headings and large blocks
-                            if (node.nodeType === 1) {
-                                const tagName = node.tagName.toLowerCase();
-                                
-                                // Always start a new page for headings (h1, h2, h3)
-                                if (/^h[1-3]$/i.test(tagName) && currentPageDiv.innerHTML !== '') {
-                                    currentPageDiv = document.createElement('div');
-                                    currentPageDiv.className = 'page';
-                                    container.appendChild(currentPageDiv);
-                                    pages.push(currentPageDiv);
-                                    currentHeight = 0;
-                                }
-                                
-                                // Handle large elements that should have their own page
-                                if ((tagName === 'table' && node.offsetHeight > maxPageHeight * 0.7) ||
-                                    (tagName === 'pre' && node.offsetHeight > maxPageHeight * 0.7)) {
-                                    // Start a new page if current isn't empty
-                                    if (currentPageDiv.innerHTML !== '') {
-                                        currentPageDiv = document.createElement('div');
-                                        currentPageDiv.className = 'page';
-                                        container.appendChild(currentPageDiv);
-                                        pages.push(currentPageDiv);
-                                        currentHeight = 0;
-                                    }
-                                    
-                                    // Add the element to its own page
-                                    currentPageDiv.appendChild(clone);
-                                    
-                                    // Start a new page for content after this element
-                                    currentPageDiv = document.createElement('div');
-                                    currentPageDiv.className = 'page';
-                                    container.appendChild(currentPageDiv);
-                                    pages.push(currentPageDiv);
-                                    currentHeight = 0;
-                                    
-                                    return;
-                                }
-                                
-                                // Try to split paragraphs more naturally
-                                if (tagName === 'p' && node.textContent.length > 200) {
-                                    const text = node.textContent;
-                                    const estimatedHeight = estimateTextHeight(text);
-                                    
-                                    // If paragraph would go beyond page boundary and we already have content
-                                    if (currentHeight + estimatedHeight > maxPageHeight && currentPageDiv.innerHTML !== '') {
-                                        // Create a new page
-                                        currentPageDiv = document.createElement('div');
-                                        currentPageDiv.className = 'page';
-                                        container.appendChild(currentPageDiv);
-                                        pages.push(currentPageDiv);
-                                        currentHeight = 0;
-                                    }
-                                    
-                                    // Add the paragraph
-                                    currentPageDiv.appendChild(clone);
-                                    currentHeight += estimatedHeight;
-                                    return;
-                                }
-                            }                            
-                            // Estimate height for text nodes and elements
                             let estimatedHeight = 0;
-                            if (node.nodeType === 3) { // Text node
-                                estimatedHeight = estimateTextHeight(node.textContent);
-                            } else if (node.nodeType === 1) { // Element node
-                                if (node.tagName === 'IMG') {
-                                    estimatedHeight = 300; // Default height for images
-                                } else {
-                                    estimatedHeight = estimateTextHeight(node.textContent);
-                                    // Add extra height for block elements
-                                    if (/^(div|p|ul|ol|table|blockquote|pre|h[1-6])$/i.test(node.tagName)) {
-                                        estimatedHeight += 20; // Add margin/padding
-                                    }
+                            if (node.nodeType === 1) { // Element node
+                                const tagName = node.tagName.toLowerCase();
+                                // Always start a new page for h1-h3 headings if the current page is not empty
+                                if (/^h[1-3]$/i.test(tagName) && currentPageDiv.innerHTML.trim() !== '') {
+                                    currentPageDiv = document.createElement('div');
+                                    currentPageDiv.className = 'page';
+                                    container.appendChild(currentPageDiv);
+                                    pages.push(currentPageDiv);
+                                    currentHeight = 0;
                                 }
+                                estimatedHeight = getElementRenderedHeight(originalNodeClone, currentPageDiv);
+                            } else if (node.nodeType === 3) { // Text node
+                                // For text nodes, wrap in a span for measurement.
+                                const tempSpan = document.createElement('span');
+                                // Important: use originalNodeClone here, not node.
+                                // originalNodeClone is what will be appended to the page.
+                                tempSpan.appendChild(originalNodeClone.cloneNode(true)); 
+                                estimatedHeight = getElementRenderedHeight(tempSpan, currentPageDiv);
                             }
-                            
-                            // Check if adding this node would exceed the page height
-                            if (currentHeight + estimatedHeight > maxPageHeight && currentPageDiv.innerHTML !== '') {
+
+                            // If the current page is empty and this single element is too tall, 
+                            // it will still be added (and will overflow, which is acceptable per instructions).
+                            // Otherwise, if it doesn't fit, create a new page.
+                            if (currentHeight + estimatedHeight > maxPageHeight && currentPageDiv.innerHTML.trim() !== '') {
                                 // Create a new page
                                 currentPageDiv = document.createElement('div');
                                 currentPageDiv.className = 'page';
@@ -420,11 +393,17 @@ namespace Continuum.Services
                                 currentHeight = 0;
                             }
                             
-                            // Add the node to the current page
-                            currentPageDiv.appendChild(clone);
+                            // Add the original cloned node (not the one used for measurement if it was wrapped/modified)
+                            currentPageDiv.appendChild(originalNodeClone);
                             currentHeight += estimatedHeight;
                         });
                         
+                        // Remove empty last page if one was created due to trailing newlines or small elements
+                        if (pages.length > 1 && pages[pages.length - 1].innerHTML.trim() === '') {
+                            container.removeChild(pages[pages.length - 1]);
+                            pages.pop();
+                        }
+
                         // Update total pages
                         totalPages = pages.length;
                     }
@@ -529,35 +508,50 @@ namespace Continuum.Services
             }
         }        private string WrapBodyContentInPagedContainer(string html)
         {
-            // If the HTML lacks proper structure, wrap it all
-            if (!html.Contains("<body"))
+            // If the HTML lacks a body tag, we can't effectively wrap its content.
+            // Return a simple structure, or consider throwing an error.
+            if (!html.Contains("<body")) // A simplified check
             {
-                return $"<body><div class=\"paged-content\"></div></body>";
+                // This case might need more robust handling depending on expected inputs.
+                // For now, we'll create a body with the paged content div, assuming html is just a fragment.
+                return $"<body><div class=\"paged-content\">{html}</div></body>";
             }
 
-            // Look for body tags to wrap content
-            var bodyStartMatch = Regex.Match(html, @"<body[^>]*>");
-            var bodyEndMatch = Regex.Match(html, @"</body>");
+            var bodyStartRegex = new Regex(@"<body[^>]*>", RegexOptions.IgnoreCase);
+            var bodyEndRegex = new Regex(@"</body>", RegexOptions.IgnoreCase);
+
+            var bodyStartMatch = bodyStartRegex.Match(html);
+            var bodyEndMatch = bodyEndRegex.Match(html);
 
             if (bodyStartMatch.Success && bodyEndMatch.Success)
             {
-                string bodyStartTag = bodyStartMatch.Value;
-                
-                // Get the content between body tags
-                int startIndex = bodyStartMatch.Index + bodyStartTag.Length;
-                int endIndex = bodyEndMatch.Index;
-                
-                if (startIndex < endIndex)
+                string bodyStartTag = bodyStartMatch.Value; // e.g., <body class="foo">
+                string bodyEndTag = bodyEndMatch.Value;   // </body>
+
+                int contentStartIndex = bodyStartMatch.Index + bodyStartTag.Length;
+                int contentEndIndex = bodyEndMatch.Index;
+
+                if (contentStartIndex <= contentEndIndex)
                 {
-                    // Create an empty paged container that will be filled by JavaScript
-                    string newBodyContent = "<div class=\"paged-content\"></div>";
+                    string originalBodyContent = html.Substring(contentStartIndex, contentEndIndex - contentStartIndex);
                     
-                    // Replace the body content while preserving original content for JS to process
-                    return html.Substring(0, startIndex) + newBodyContent + html.Substring(startIndex);
+                    // Construct the new body with the paged-content div wrapping the original content
+                    var newBodyInnerContent = $"<div class=\"paged-content\">{originalBodyContent}</div>";
+                    
+                    // Reconstruct the HTML:
+                    // Everything before the body tag + new body start tag + new wrapped content + body end tag + everything after body tag.
+                    string htmlBeforeBody = html.Substring(0, bodyStartMatch.Index);
+                    string htmlAfterBody = html.Substring(bodyEndMatch.Index + bodyEndTag.Length);
+
+                    return htmlBeforeBody + bodyStartTag + newBodyInnerContent + bodyEndTag + htmlAfterBody;
                 }
             }
 
-            return html;
+            // Fallback if body tags are not found as expected or content is malformed.
+            // This might indicate an issue with the input HTML.
+            // Wrapping the whole thing might be a last resort, but consider logging this.
+            // For now, consistent with previous fallback for missing body tag:
+            return $"<body><div class=\"paged-content\">{html}</div></body>";
         }
     }
 }
